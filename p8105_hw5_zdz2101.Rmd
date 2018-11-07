@@ -8,17 +8,60 @@ output: github_document
 ```{r}
 library(tidyverse)
 library(purrr)
+library(knitr)
+library(broom)
 ```
 
-```{r}
+```{r, message = FALSE}
 setwd("./data/")
 patient_df <- tibble(filenames = list.files()) %>%
   mutate(weekly_data = map(filenames, read_csv)) %>%
   unnest() %>%
   mutate(arm = substring(filenames, 1, 3),
          subject_id  = substring(filenames, 5, 6)) %>%
-  gather(week, measure, 2:9)
+  gather(week, measure, 2:9) %>%
+  mutate(week = as.numeric(str_replace(week, "week_","")))
+patient_df
+setwd("..")
 
+ggplot(patient_df, aes(x = week, y = measure, group = filenames, color = arm)) +
+  geom_line() +
+  scale_x_discrete(name ="Week", limits=1:8) +
+  ylab("Measure") +
+  ggtitle("Patient Measurements by Week")
+```
 
+The trend for control group patients' measurements seems stagnant and don't quite change over time while patients in the experimental arm, their measurements seem to rise over time. 
+
+```{r, message = FALSE}
+homicide_df <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
+homicide_df <- homicide_df %>%
+  mutate(city_state = str_c(city, ", ", state),
+         homicide_status = ifelse(disposition == "Closed by arrest", "Solved", "Unsolved"))
+
+homicide_df  %>%
+  group_by(city_state) %>%
+  count(homicide_status) %>%
+  spread(homicide_status, n) %>%
+  kable()
+
+#an answer probably not desired answer
+baltimore_prop_df <- filter(homicide_df, city_state == "Baltimore, MD")
+baltimore_proptest <- prop.test(table(baltimore_prop_df$homicide_status))
+tidy(baltimore_proptest) %>%
+  select(estimate, conf.low, conf.high) %>%
+  kable()
+
+#doing it by city
+homicide_df  %>%
+  group_by(city_state) %>%
+  count(homicide_status) %>%
+  spread(homicide_status, n) %>%
+  mutate(total = Unsolved + Solved) %>%
+  filter(city_state != "Tulsa, AL") %>%
+  mutate(test =  map(map2(.x = Unsolved, .y = total, ~prop.test(x = .x, n = .y)), tidy)) %>%
+  unnest() %>%
+  select(city_state, estimate, conf.low, conf.high) %>%
+  kable()
 ```
 
