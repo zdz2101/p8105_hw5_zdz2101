@@ -10,6 +10,7 @@ library(tidyverse)
 library(purrr)
 library(knitr)
 library(broom)
+library(ggthemes)
 ```
 
 ```{r, message = FALSE}
@@ -39,21 +40,24 @@ homicide_df <- homicide_df %>%
   mutate(city_state = str_c(city, ", ", state),
          homicide_status = ifelse(disposition == "Closed by arrest", "Solved", "Unsolved"))
 
+#Homicide Case Counts
 homicide_df  %>%
   group_by(city_state) %>%
   count(homicide_status) %>%
   spread(homicide_status, n) %>%
   kable()
 
-#an answer probably not desired answer
+#Just Baltimore
 baltimore_prop_df <- filter(homicide_df, city_state == "Baltimore, MD")
 baltimore_proptest <- prop.test(table(baltimore_prop_df$homicide_status))
 tidy(baltimore_proptest) %>%
   select(estimate, conf.low, conf.high) %>%
+  mutate(city = "Baltimore, MD") %>%
   kable()
 
+
 #doing it by city
-homicide_df  %>%
+city_props <- homicide_df  %>%
   group_by(city_state) %>%
   count(homicide_status) %>%
   spread(homicide_status, n) %>%
@@ -61,7 +65,21 @@ homicide_df  %>%
   filter(city_state != "Tulsa, AL") %>%
   mutate(test =  map(map2(.x = Unsolved, .y = total, ~prop.test(x = .x, n = .y)), tidy)) %>%
   unnest() %>%
-  select(city_state, estimate, conf.low, conf.high) %>%
-  kable()
+  select(city_state, estimate, conf.low, conf.high)
+
+kable(city_props)
+
+city_props %>%
+  ungroup()%>%
+  arrange(estimate) %>%
+  mutate(city_state = factor(city_state, levels = city_state)) %>%
+  ggplot(aes(x = city_state, y = estimate)) + 
+  geom_point() + 
+  geom_errorbar(aes(x = city_state, ymin = conf.low, ymax = conf.high), width=0.2, size=1, color="blue") + 
+  coord_flip() + 
+  ylab("Estimated Proportion of Unsolved Homicides") + 
+  xlab("City, State") + 
+  ggtitle("Estimated Proportion of Unsolved Homicides by City/State") +
+  theme_few()
 ```
 
