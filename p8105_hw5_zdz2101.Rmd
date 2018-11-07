@@ -50,7 +50,8 @@ homicide_df  %>%
   kable()
 
 #Just Baltimore
-baltimore_prop_df <- filter(homicide_df, city_state == "Baltimore, MD")
+baltimore_prop_df <- filter(homicide_df, city_state == "Baltimore, MD") %>%
+  mutate(homicide_status = factor(homicide_status, levels = c("Unsolved", "Solved")))
 baltimore_proptest <- prop.test(table(baltimore_prop_df$homicide_status))
 tidy(baltimore_proptest) %>%
   select(estimate, conf.low, conf.high) %>%
